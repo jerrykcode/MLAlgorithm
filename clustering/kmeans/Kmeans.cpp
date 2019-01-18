@@ -13,38 +13,39 @@ void Kmeans::clustering(int nClusters, double *dataBuffer, int nRows, int nCols,
 	this->nClusters = nClusters;
 	this->nRows = nRows;
 	this->nCols = nCols;
-	loadBuffer(dataBuffer, nRows, nCols);	
+	loadBuffer(dataBuffer, nRows, nCols);
 	kmeans_clustering(label);
-	clearData();	
+	clearData();
 }
 
-void Kmeans::loadBuffer(double *dataBuffer, int nRows, int nCols) {
+void Kmeans::loadBuffer(double *dataBuffer, int nRows, int nCols) {	
 	for (int i = 0; i < nRows; i++) {
 		dataSet.push_back(Point((dataBuffer + i * nCols), nCols));
 	}
 }
 
-void Kmeans::randomSetCentroids() {
-	srand((unsigned int)time(NULL));
+void Kmeans::randomSetCentroids() {	
+	srand((unsigned int)time(NULL));	
 	map<int, bool> randomUsed;
-	for (int i = 0; i < nClusters; i++) {
-		int k = rand();
-		while (randomUsed.find(k) != randomUsed.end()) k = rand();
-		double *pointData = new double[nCols];
-		for (int j = 0; j < dataSet[k].dimension; j++)
-			pointData[j] = dataSet[k].data[j];
-		centroids.push_back(Point(pointData, nCols));
+	for (int i = 0; i < nClusters; i++) {		
+		int k = rand() % nRows;	
+		while (randomUsed.find(k) != randomUsed.end()) k = rand() % nRows;		
+		double *pointData = new double[nCols];		
+		for (int j = 0; j < dataSet[k].dimension; j++) {			
+			pointData[j] = dataSet[k].data[j];			
+		}
+		centroids.push_back(Point(pointData, nCols));		
 		randomUsed[k] = true;
-	}
-	randomUsed.clear();
-	map<int, bool>().swap(randomUsed);
+	}	
+	randomUsed.clear();	
+	map<int, bool>().swap(randomUsed);	
 }
 
 double square(double a) { return a*a; }
-void Kmeans::kmeans_clustering(int *label) {
-	randomSetCentroids();
+void Kmeans::kmeans_clustering(int *label) {	
+	randomSetCentroids();	
 	vector<PPoint>* clusters = new vector<PPoint>[nRows];
-	while (1) {
+	while (1) {		
 		//Calculates the cluster of each point
 		for (int point_idx = 0; point_idx < nRows; point_idx++) {			
 			double minDist = -1;
@@ -74,31 +75,24 @@ void Kmeans::kmeans_clustering(int *label) {
 					hasCentroidChanged = true;
 					centroids[centroid_idx].data[i] = newData[i];
 				}
+			clusters[centroid_idx].clear();
 			free(newData);			
 		}
 		if (!hasCentroidChanged) break;
-	}	
+	}
 	for (int i = 0; i < nRows; i++) {
 		clusters[i].clear();
 		vector<PPoint>().swap(clusters[i]);
 	}
-	free(clusters);
+	//free(clusters);
 }
 
 void Kmeans::clearData() {
-	for (auto it = dataSet.begin(); it != dataSet.end(); it++) {
-		PPoint pPoint = &(*it);
-		if (pPoint != NULL) {
-			delete (pPoint);
-			pPoint = NULL;
-		}
-	}
 	dataSet.clear(); //swap in the destructor
 	for (auto it = centroids.begin(); it != centroids.end(); it++) {
 		PPoint pPoint = &(*it);
 		if (pPoint != NULL) {
 			free(pPoint->data);
-			delete (pPoint);
 			pPoint = NULL;
 		}	
 	}

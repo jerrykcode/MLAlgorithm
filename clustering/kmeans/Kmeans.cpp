@@ -42,7 +42,7 @@ void Kmeans::randomSetCentroids() {
 }
 
 double square(double a) { return a*a; }
-void Kmeans::kmeans_clustering(int *label) {	
+void Kmeans::kmeans_clustering(int *label) {
 	randomSetCentroids();	
 	vector<PPoint>* clusters = new vector<PPoint>[nRows];
 	while (1) {		

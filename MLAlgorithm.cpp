@@ -24,7 +24,7 @@ static PyObject *py_kmeans(PyObject *self, PyObject *args) {
 		PyBuffer_Release(&dataView);
 		return NULL;
 	}
-	if (strcmp(dataView.format, "d") != 0 && strcmp(dataView.format, "i") != 0 && strcmp(dataView.format, "f") != 0) {
+	if (strcmp(dataView.format, "d") != 0 && strcmp(dataView.format, "i") != 0 && strcmp(dataView.format, "f") != 0 && strcmp(dataView.format, "l") != 0) {
 		PyErr_SetString(PyExc_TypeError, "Arg 2 expected an array of numbers");
 		PyBuffer_Release(&dataView);
 		return NULL;
@@ -42,7 +42,7 @@ static PyObject *py_kmeans(PyObject *self, PyObject *args) {
 		return NULL;
 	}
 
-	if (strcmp(labelView.format, "d") != 0 && strcmp(labelView.format, "i") != 0 && strcmp(labelView.format, "f") != 0) {
+	if (strcmp(labelView.format, "d") != 0 && strcmp(labelView.format, "i") != 0 && strcmp(labelView.format, "f") != 0 && strcmp(labelView.format, "l") != 0) {
 		PyErr_SetString(PyExc_TypeError, "Arg 3 expected an array of numbers");
 		PyBuffer_Release(&dataView);
 		PyBuffer_Release(&labelView);

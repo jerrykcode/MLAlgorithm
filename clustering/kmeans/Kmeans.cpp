@@ -1,5 +1,11 @@
 #include "Kmeans.h"
 
+#ifdef SQUARE
+#undef SQUARE
+#endif
+
+#define SQUARE(a) ((a) * (a))
+
 Kmeans::Kmeans() {
 
 }
@@ -41,7 +47,6 @@ void Kmeans::randomSetCentroids() {
 	map<int, bool>().swap(randomUsed);	
 }
 
-double square(double a) { return a*a; }
 void Kmeans::kmeans_clustering(int *label) {
 	randomSetCentroids();	
 	vector<PPoint>* clusters = new vector<PPoint>[nRows];
@@ -52,7 +57,7 @@ void Kmeans::kmeans_clustering(int *label) {
 			for (int centroid_idx = 0; centroid_idx < nClusters; centroid_idx++) {
 				double dist = 0;
 				for (int i = 0; i < nCols; i++)
-					dist += square(dataSet[point_idx].data[i] - centroids[centroid_idx].data[i]);
+					dist += SQUARE(dataSet[point_idx].data[i] - centroids[centroid_idx].data[i]);
 				if (minDist == -1 || dist < minDist) {
 					minDist = dist;
 					label[point_idx] = centroid_idx;

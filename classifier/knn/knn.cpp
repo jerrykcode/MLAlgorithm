@@ -76,7 +76,7 @@ int Knn::mostFrequencyLabel() {
 	for (int i = 0; i < k_; i++) {
 		PNeighbor pNeighbor = new Neighbor(0, NULL);
 		heap_->top(pNeighbor);
-		if (pNeighbor != NULL) {
+		if (pNeighbor->p_neighborPoint != NULL) {
 			int label = label_[pNeighbor->p_neighborPoint->id];
 			if ((tempAppearTime = ++labelAppearTime[label]) > maxAppearTime) {
 				maxAppearTime = tempAppearTime;
@@ -101,7 +101,7 @@ Knn::MinHeap::~MinHeap() {
 }
 
 void Knn::MinHeap::clearHeap() {
-	for (int i = 0; i < capacity_; i++) {
+	for (int i = 0; i < size_; i++) {
 		if (elements_[i] != NULL) {
 			delete elements_[i];
 			elements_[i] = NULL;	
@@ -122,6 +122,7 @@ void Knn::MinHeap::top(PNeighbor pNeighbor) {
 	if (size_ == 0) return;
 	if (size_ == 1) {
 		*pNeighbor = *(elements_[--size_]);//elements_[o], size_ = 0
+		delete elements_[size_];
 		return;
 	}
 	int parent_idx, child_idx;
@@ -136,4 +137,5 @@ void Knn::MinHeap::top(PNeighbor pNeighbor) {
 	}
 	elements_[parent_idx] = temp;
 	*pNeighbor = *topElement;
+	delete topElement;
 }

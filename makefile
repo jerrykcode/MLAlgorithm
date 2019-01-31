@@ -3,7 +3,7 @@
 
 CC = g++
 
-OBJ = Kmeans.o Dbscan.o Knn.o MLAlgorithm.o
+OBJ = Kmeans.o Dbscan.o Knn.o Pca.o MLAlgorithm.o
 
 # python path
 PY_PATH = d:\20170608down\python3.7.2
@@ -20,8 +20,11 @@ DBSCAN_PATH = clustering/dbscan
 # knn path
 KNN_PATH = classifier/knn
 
+# pca path
+PCA_PATH = dimensionality_reduction/pca
+
 # include
-INCLUDE = -I$(KMEANS_PATH) -I$(DBSCAN_PATH) -I$(KNN_PATH) -I$(PY_DEPS)
+INCLUDE = -I$(KMEANS_PATH) -I$(DBSCAN_PATH) -I$(KNN_PATH) -I$(PCA_PATH) -I$(PY_DEPS)
 
 # link
 LINK = -L$(PY_LIBS) -l$(LIB)
@@ -51,6 +54,11 @@ KNN = $(KNN_PATH)/knn.h $(KNN_PATH)/knn.cpp
 Knn.o : $(KNN)
 	$(CC) -c $(KNN_PATH)/knn.cpp
 
+# make Pca.o
+PCA = $(PCA_PATH)/pca.h $(PCA_PATH)/pca.cpp
+Pca.o : $(PCA)
+	$(CC) -c $(PCA_PATH)/pca.cpp
+
 # make MLAlgorithm.o
-MLAlgorithm.o : MLAlgorithm.cpp $(KMEANS) $(DBSCAN) $(KNN)
+MLAlgorithm.o : MLAlgorithm.cpp $(KMEANS) $(DBSCAN) $(KNN) $(PCA)
 	$(CC) -c MLAlgorithm.cpp $(CFLAGS)

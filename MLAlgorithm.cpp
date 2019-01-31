@@ -2,11 +2,13 @@
 #include "Kmeans.h"
 #include "dbscan.h"
 #include "knn.h"
+#include "pca.h"
 
 //Constructor of algorithms
 Kmeans km;
 Dbscan dbscan;
 Knn knn;
+PCA pca;
 
 //Kmeans
 //
@@ -201,7 +203,7 @@ static PyObject *py_knn_train(PyObject *self, PyObject *args) {
 		return NULL;
 	}
 
-	//Call function in dbscan
+	//Call function in knn
 	knn.train((double *)dataView.buf, dataView.shape[0], dataView.shape[1], (int *)labelView.buf);
 		
 	PyBuffer_Release(&dataView);
@@ -237,7 +239,7 @@ static PyObject *py_knn_predict(PyObject *self, PyObject *args) {
 		return NULL;
 	}
 
-	//Call function in dbscan
+	//Call function in knn
 	int predict_label = knn.predict(k, (double *)pointView.buf, pointView.shape[0]);
 	if (predict_label == KNN_NODATA_ERROR) {
 		PyErr_SetString(PyExc_TypeError, "Call knn_train first!");
@@ -255,12 +257,78 @@ static PyObject *py_knn_predict(PyObject *self, PyObject *args) {
 	return Py_BuildValue("i", predict_label);
 }
 
+//PCA
+//
+static PyObject *py_pca_transform(PyObject *self, PyObject *args) {
+	PyObject *dataBuffer;
+	PyObject *outputBuffer;
+	int dimension;
+
+	//Get the Python object passed in
+	if (!PyArg_ParseTuple(args, "i|O|O", &dimension, &dataBuffer, &outputBuffer)) {
+		return NULL;
+	}
+
+	//Extract the buffer information
+	Py_buffer dataView, outputView;
+
+	//Extract data buffer
+	if (PyObject_GetBuffer(dataBuffer, &dataView, PyBUF_ANY_CONTIGUOUS | PyBUF_FORMAT) == -1) {
+		return NULL;
+	}
+
+	if (dataView.ndim != 2) {
+		PyErr_SetString(PyExc_TypeError, "Arg 1 expected a 2-dimentional array");
+		PyBuffer_Release(&dataView);
+		return NULL;
+	}
+	if (strcmp(dataView.format, "d") != 0 && strcmp(dataView.format, "i") != 0 && strcmp(dataView.format, "f") != 0 && strcmp(dataView.format, "l") != 0) {
+		PyErr_SetString(PyExc_TypeError, "Arg 1 expected an array of numbers");
+		PyBuffer_Release(&dataView);
+		return NULL;
+	}
+
+	//Extract output buffer
+	if (PyObject_GetBuffer(outputBuffer, &outputView, PyBUF_ANY_CONTIGUOUS | PyBUF_FORMAT) == -1) {
+		return NULL;
+	}
+
+	if (outputView.ndim != 2) {
+		PyErr_SetString(PyExc_TypeError, "Arg 2 expected a 2-dimensional array");
+		PyBuffer_Release(&dataView);
+		PyBuffer_Release(&outputView);
+		return NULL;
+	}
+
+	if (strcmp(outputView.format, "d") != 0 && strcmp(outputView.format, "i") != 0 && strcmp(outputView.format, "f") != 0 && strcmp(outputView.format, "l") != 0) {
+		PyErr_SetString(PyExc_TypeError, "Arg 2 expected an array of integers");
+		PyBuffer_Release(&dataView);
+		PyBuffer_Release(&outputView);
+		return NULL;
+	}
+
+	if (dataView.shape[0] != outputView.shape[0]) {
+		PyBuffer_Release(&dataView);
+		PyBuffer_Release(&outputView);
+		return NULL;
+	}
+
+	//Call function in pca
+	pca.transform(dimension, (double *)dataView.buf, dataView.shape[0], dataView.shape[1], (double *)outputView.buf);
+
+	PyBuffer_Release(&dataView);
+	PyBuffer_Release(&outputView);
+
+	return Py_BuildValue("i", 0);
+}
+
 static PyMethodDef MLAlgorithmFunc[] = {
 	{"kmeans", py_kmeans, METH_VARARGS, "clustering by kmeans"},
 	{"dbscan", py_dbscan, METH_VARARGS, "clustering by dbscan"},
 	{"dbscan_isNoiseLabel", py_dbscan_isNoiseLabel, METH_VARARGS, "Returns true if it's a noise label in dbscan"},
 	{"knn_train", py_knn_train, METH_VARARGS, "KNN train data"},
 	{"knn_predict", py_knn_predict, METH_VARARGS, "KNN predict data"},
+	{"pca_transform", py_pca_transform, METH_VARARGS, "PCA transform"},
 	{NULL, NULL, 0, NULL},
 };
 

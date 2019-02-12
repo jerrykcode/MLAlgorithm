@@ -62,8 +62,8 @@ typename DecisionTree<T>::Tree DecisionTree<T>::buildTree_ID3(vector<PPoint>& pP
 				fill(child_sample_count[j], child_sample_count[j] + nClusters_, 0);
 			}
 			for (DecisionTree<T>::PPoint pPoint : pPoints) {
-				child_count[pPoint->pointData_[i]]++;
-				child_sample_count[pPoint->pointData_[i]][pPoint->label_]++;
+				child_count[(int)pPoint->pointData_[i]]++;
+				child_sample_count[(int)pPoint->pointData_[i]][pPoint->label_]++;
 			}
 			double entropy = 0.0;
 			for (int j = 0; j < nChildren_[i]; j++) {
@@ -185,7 +185,12 @@ int DecisionTree<T>::dfs_predict(T * predictData, Tree tree) {
 	if (tree->label_ != -1) {
 		return tree->label_;
 	}
-	return dfs_predict(predictData, tree->children_[predictData[tree->attribute_]]);
+	if (nChildren_[tree->attribute_] != -1) 
+		return dfs_predict(predictData, tree->children_[(int)predictData[tree->attribute_]]);
+	else {
+		DecisionTree<T>::Tree subtree = predictData[tree->attribute_] < tree->tag_ ? tree->children_[0] : tree->children_[1];
+		return dfs_predict(predictData, subtree);
+	}
 }
 
 #ifdef PRINT_TREE

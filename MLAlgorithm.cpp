@@ -3,12 +3,15 @@
 #include "dbscan.h"
 #include "knn.h"
 #include "pca.h"
+#include "DecisionTree.h"
+#include "DecisionTree.cpp"
 
 //Constructor of algorithms
 Kmeans km;
 Dbscan dbscan;
 Knn knn;
 PCA pca;
+DecisionTree<double> dtree;
 
 //Kmeans
 //
@@ -322,6 +325,138 @@ static PyObject *py_pca_transform(PyObject *self, PyObject *args) {
 	return Py_BuildValue("i", 0);
 }
 
+//Decision Tree
+//
+static PyObject *py_decision_tree_train(PyObject *self, PyObject *args) {
+	PyObject *dataBuffer;
+	PyObject *labelBuffer;
+	PyObject *nChildrenBuffer;
+	int nClusters;
+
+	//Get the Python object passed in
+	if (!PyArg_ParseTuple(args, "O|O|O|i", &dataBuffer, &labelBuffer, &nChildrenBuffer, &nClusters)) {
+		return NULL;
+	}
+
+	//Extract the buffer information
+	Py_buffer dataView, labelView, nChildrenView;
+
+	//Extract data buffer
+	if (PyObject_GetBuffer(dataBuffer, &dataView, PyBUF_ANY_CONTIGUOUS | PyBUF_FORMAT) == -1) {
+		return NULL;
+	}
+
+	if (dataView.ndim != 2) {
+		PyErr_SetString(PyExc_TypeError, "Arg 1 expected a 2-dimentional array");
+		PyBuffer_Release(&dataView);
+		return NULL;
+	}
+	if (strcmp(dataView.format, "d") != 0 && strcmp(dataView.format, "i") != 0 && strcmp(dataView.format, "f") != 0 && strcmp(dataView.format, "l") != 0) {
+		PyErr_SetString(PyExc_TypeError, "Arg 1 expected an array of numbers");
+		PyBuffer_Release(&dataView);
+		return NULL;
+	}
+
+	//Extract label buffer
+	if (PyObject_GetBuffer(labelBuffer, &labelView, PyBUF_ANY_CONTIGUOUS | PyBUF_FORMAT) == -1) {
+		return NULL;
+	}
+
+	if (labelView.ndim != 1) {
+		PyErr_SetString(PyExc_TypeError, "Arg 2 expected a 1-dimensional array");
+		PyBuffer_Release(&dataView);
+		PyBuffer_Release(&labelView);
+		PyBuffer_Release(&nChildrenView);
+		return NULL;
+	}
+
+	if (strcmp(labelView.format, "d") != 0 && strcmp(labelView.format, "i") != 0 && strcmp(labelView.format, "f") != 0 && strcmp(labelView.format, "l") != 0) {
+		PyErr_SetString(PyExc_TypeError, "Arg 2 expected an array of integers");
+		PyBuffer_Release(&dataView);
+		PyBuffer_Release(&labelView);
+		PyBuffer_Release(&nChildrenView);
+		return NULL;
+	}
+
+	if (dataView.shape[0] != labelView.shape[0]) {
+		PyBuffer_Release(&dataView);
+		PyBuffer_Release(&labelView);
+		PyBuffer_Release(&nChildrenView);
+		return NULL;
+	}
+
+	//Extract nChildren buffer
+	if (PyObject_GetBuffer(nChildrenBuffer, &nChildrenView, PyBUF_ANY_CONTIGUOUS | PyBUF_FORMAT) == -1) {
+		return NULL;
+	}
+
+	if (nChildrenView.ndim != 1) {
+		PyErr_SetString(PyExc_TypeError, "Arg 3 expected a 2-dimensional array");
+		PyBuffer_Release(&dataView);
+		PyBuffer_Release(&labelView);
+		PyBuffer_Release(&nChildrenView);
+		return NULL;
+	}
+
+	if (strcmp(nChildrenView.format, "d") != 0 && strcmp(nChildrenView.format, "i") != 0 && strcmp(nChildrenView.format, "f") != 0 && strcmp(nChildrenView.format, "l") != 0) {
+		PyErr_SetString(PyExc_TypeError, "Arg 2 expected an array of integers");
+		PyBuffer_Release(&dataView);
+		PyBuffer_Release(&labelView);
+		PyBuffer_Release(&nChildrenView);
+		return NULL;
+	}
+
+	if (dataView.shape[1] != nChildrenView.shape[0]) {
+		PyBuffer_Release(&dataView);
+		PyBuffer_Release(&labelView);
+		PyBuffer_Release(&nChildrenView);
+		return NULL;
+	}
+
+	//Call function in decision tree
+	dtree.train((double *)dataView.buf, dataView.shape[0], dataView.shape[1], (int *)labelView.buf, (int *)nChildrenView.buf, nClusters);
+
+	PyBuffer_Release(&dataView);
+	PyBuffer_Release(&labelView);
+	PyBuffer_Release(&nChildrenView);
+
+	return Py_BuildValue("i", 0);
+}
+
+static PyObject *py_decision_tree_predict(PyObject *self, PyObject *args) {
+	PyObject *pointBuffer;
+	//Get the Python object passed in
+	if (!PyArg_ParseTuple(args, "O", &pointBuffer)) {
+		return NULL;
+	}
+
+	//Extract the buffer information
+	Py_buffer pointView;
+
+	//Extract data buffer
+	if (PyObject_GetBuffer(pointBuffer, &pointView, PyBUF_ANY_CONTIGUOUS | PyBUF_FORMAT) == -1) {
+		return NULL;
+	}
+
+	if (pointView.ndim != 1) {
+		PyErr_SetString(PyExc_TypeError, "Arg 1 expected a 1-dimentional array");
+		PyBuffer_Release(&pointView);
+		return NULL;
+	}
+	if (strcmp(pointView.format, "d") != 0 && strcmp(pointView.format, "i") != 0 && strcmp(pointView.format, "f") != 0 && strcmp(pointView.format, "l") != 0) {
+		PyErr_SetString(PyExc_TypeError, "Arg 1 expected an array of numbers");
+		PyBuffer_Release(&pointView);
+		return NULL;
+	}
+
+	//Call function in knn
+	int predict_label = dtree.predict((double *)pointView.buf);	
+
+	PyBuffer_Release(&pointView);
+
+	return Py_BuildValue("i", predict_label);
+}
+
 static PyMethodDef MLAlgorithmFunc[] = {
 	{"kmeans", py_kmeans, METH_VARARGS, "clustering by kmeans"},
 	{"dbscan", py_dbscan, METH_VARARGS, "clustering by dbscan"},
@@ -329,6 +464,8 @@ static PyMethodDef MLAlgorithmFunc[] = {
 	{"knn_train", py_knn_train, METH_VARARGS, "KNN train data"},
 	{"knn_predict", py_knn_predict, METH_VARARGS, "KNN predict data"},
 	{"pca_transform", py_pca_transform, METH_VARARGS, "PCA transform"},
+	{"decision_tree_train", py_decision_tree_train, METH_VARARGS, "Decision Tree train"},
+	{"decision_tree_predict", py_decision_tree_predict, METH_VARARGS, "Decision Tree predict"},
 	{NULL, NULL, 0, NULL},
 };
 

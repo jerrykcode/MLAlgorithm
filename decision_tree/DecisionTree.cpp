@@ -47,37 +47,82 @@ typename DecisionTree<T>::Tree DecisionTree<T>::buildTree_ID3(vector<PPoint>& pP
 	//ID3 calculate max information gain
 	//The attribute with the minimum entropy has the max information gain
 	int best_attribute = -1;
-	int best_attribute_entropy = -1;
+	double best_attribute_entropy = -1;
+	double best_tag = 0.0;
 	for (int i = 0; i < nAttributes_; i++) {
-		if (attribute_used[i]) continue; 
-		int *child_count = new int[nChildren_[i]];
-		fill(child_count, child_count + nChildren_[i], 0);
-		int **child_sample_count = new int*[nChildren_[i]];
-		for (int j = 0; j < nChildren_[i]; j++) {
-			child_sample_count[j] = new int[nClusters_];
-			fill(child_sample_count[j], child_sample_count[j] + nClusters_, 0);
-		}
-		for (DecisionTree<T>::PPoint pPoint : pPoints) {
-			child_count[pPoint->pointData_[i]]++;
-			child_sample_count[pPoint->pointData_[i]][pPoint->label_]++;
-		}
-		double entropy = 0.0;
-		for (int j = 0; j < nChildren_[i]; j++) {
-			double entropy_child = 0.0;
-			for (int k = 0; k < nClusters_; k++) {
-				double p = (child_sample_count[j][k] * 1.0) / child_count[j];
-				entropy_child -= p * (log(p) / log(2));
+		if (attribute_used[i]) continue; 		
+		int *child_count; //child_count[a] means the number of points with the attribute value a
+		int **child_sample_count; //child_sample_count[a][b] means the number of points with the attribute value a and in  clusster b
+		if (nChildren_[i] != -1) { //If the attribute has discrete value
+			child_count = new int[nChildren_[i]];
+			fill(child_count, child_count + nChildren_[i], 0);
+			child_sample_count = new int*[nChildren_[i]];
+			for (int j = 0; j < nChildren_[i]; j++) {
+				child_sample_count[j] = new int[nClusters_];
+				fill(child_sample_count[j], child_sample_count[j] + nClusters_, 0);
 			}
-			entropy += (child_count[j] * entropy_child) / pPoints.size();
+			for (DecisionTree<T>::PPoint pPoint : pPoints) {
+				child_count[pPoint->pointData_[i]]++;
+				child_sample_count[pPoint->pointData_[i]][pPoint->label_]++;
+			}
+			double entropy = 0.0;
+			for (int j = 0; j < nChildren_[i]; j++) {
+				double entropy_child = 0.0;
+				for (int k = 0; k < nClusters_; k++) {
+					double p = (child_sample_count[j][k] * 1.0) / child_count[j];
+					entropy_child -= p * (log(p) / log(2));
+				}
+				entropy += (child_count[j] * entropy_child) / pPoints.size();
+			}
+			free(child_count);
+			for (int j = 0; j < nChildren_[i]; j++)
+				free(child_sample_count[j]);
+			free(child_sample_count);
+			if (best_attribute == -1 || entropy < best_attribute_entropy) {
+				best_attribute = i;
+				best_attribute_entropy = entropy;
+			}
 		}
-		free(child_count);
-		for (int j = 0; j < nChildren_[i]; j++)
-			free(child_sample_count[j]);
-		free(child_sample_count);
-		if (best_attribute == -1 || entropy < best_attribute_entropy) {
-			best_attribute = i;
-			best_attribute_entropy = entropy;	
-		}	
+		else { //The attribute has continuous value
+			int best_cut = -1;
+			double best_cut_entropy = -1;
+			child_count = new int[2];
+			fill(child_count, child_count + 2, 0);
+			child_sample_count = new int*[2];
+			for (int j = 0; j < 2; j++) {
+				child_sample_count[i] = new int[nClusters_];
+				fill(child_sample_count[i], child_sample_count[i] + nClusters_, 0);
+			}
+			double *elements = new double[pPoints.size()];
+			for (int j = 0; j < pPoints.size(); j++) {
+				elements[j] = pPoints[j]->pointData_[i];
+			}
+			sort(elements, elements + pPoints.size());
+			for (int j = 0; j < pPoints.size() - 1; j++) { //Find the best place to cut the elements into two sets
+				for (DecisionTree<T>::PPoint pPoint : pPoints) {
+					pPoint->pointData_[i] <= elements[j] ? child_count[0]++ : child_count[1]++;
+					pPoint->pointData_[i] <= elements[j] ? child_sample_count[0][pPoint->label_]++ : child_sample_count[1][pPoint->label_]++;
+				}
+				double entropy_cut = 0.0;
+				for (int k = 0; k < 2; k++) {
+					double entropy_child = 0.0;
+					for (int l = 0; l < nClusters_; l++) {
+						double p = (child_sample_count[k][l] * 1.0) / child_count[k];
+						entropy_child -= p * (log(p) / log(2));
+					}
+					entropy_cut += (child_count[k] * entropy_child) / pPoints.size();
+				}
+				if (best_cut_entropy == -1 || entropy_cut < best_cut_entropy) {
+					best_cut = j;
+					best_cut_entropy = entropy_cut;
+				}
+			}
+			if (best_attribute == -1 || best_cut_entropy < best_attribute_entropy) {
+				best_attribute = i;
+				best_attribute_entropy = best_cut_entropy;
+				best_tag = elements[best_cut] / 2 + elements[best_cut + 1] / 2;
+			}
+		}		
 	}
 	//All the attributes had been used, return
 	if (best_attribute == -1) {
@@ -97,16 +142,33 @@ typename DecisionTree<T>::Tree DecisionTree<T>::buildTree_ID3(vector<PPoint>& pP
 		return tree;
 	}
 	//Build tree
-	attribute_used[best_attribute] = true;
-	DecisionTree<T>::Tree tree = new DecisionTree<T>::TNode(pPoints, best_attribute, nChildren_[best_attribute]);
-	for (int i = 0; i < nChildren_[best_attribute]; i++) {
-		vector<DecisionTree<T>::PPoint> child_pPoints;
-		for (DecisionTree<T>::PPoint pPoint : pPoints)
-			if (pPoint->pointData_[best_attribute] == i)
-				child_pPoints.push_back(pPoint);
-		tree->children_[i] = buildTree_ID3(child_pPoints, attribute_used);
+	DecisionTree<T>::Tree tree;
+	if (nChildren_[best_attribute] != -1) {
+		attribute_used[best_attribute] = true;
+		tree = new DecisionTree<T>::TNode(pPoints, best_attribute, nChildren_[best_attribute], true);
+		for (int i = 0; i < nChildren_[best_attribute]; i++) {
+			vector<DecisionTree<T>::PPoint> child_pPoints;
+			for (DecisionTree<T>::PPoint pPoint : pPoints)
+				if (pPoint->pointData_[best_attribute] == i)
+					child_pPoints.push_back(pPoint);
+			tree->children_[i] = buildTree_ID3(child_pPoints, attribute_used);
+		}
+		attribute_used[best_attribute] = false;		
 	}
-	attribute_used[best_attribute] = false;
+	else {
+		tree = new DecisionTree<T>::TNode(pPoints, best_attribute, 2, false);
+		tree->tag_ = best_tag;
+		for (int i = 0; i < 2; i++) {
+			vector<DecisionTree<T>::PPoint> child_pPoints;
+			for (DecisionTree<T>::PPoint pPoint : pPoints) {
+				if (i == 0 && pPoint->pointData_[best_attribute] < best_tag)
+					child_pPoints.push_back(pPoint);
+				else if (pPoint->pointData_[best_attribute] > best_tag)
+					child_pPoints.push_back(pPoint);
+			}
+			tree->children_[i] = buildTree_ID3(child_pPoints, attribute_used);
+		}		
+	}
 	return tree;
 }
 

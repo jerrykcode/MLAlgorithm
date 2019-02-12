@@ -2,6 +2,7 @@
 #include <iostream>
 #include <vector>
 #include <cmath>
+#include <algorithm>
 #ifdef PRINT_TREE
 #include <string>
 #endif
@@ -30,11 +31,14 @@ private:
 	typedef struct TNode {
 		vector<PPoint> pPoints_;
 		int attribute_;
+		bool isAttributeDiscrete_;
+		double tag_;
 		int label_;
 		struct TNode ** children_;
 		TNode() {}
-		TNode(vector<PPoint>& pPoints, int attribute) : pPoints_(pPoints), attribute_(attribute), label_(-1) {}
-		TNode(vector<PPoint>& pPoints, int attribute, int nChildren) : pPoints_(pPoints), attribute_(attribute), label_(-1) {
+		TNode(vector<PPoint>& pPoints, int attribute) : pPoints_(pPoints), attribute_(attribute), label_(-1), tag_(0.0) {}
+		TNode(vector<PPoint>& pPoints, int attribute, int nChildren, bool isAttributeDiscrete) : pPoints_(pPoints), 
+			attribute_(attribute), label_(-1), isAttributeDiscrete_(isAttributeDiscrete), tag_(0.0) {
 			children_ = new struct TNode *[nChildren];
 			for (int i = 0; i < nChildren; i++)
 				children_[i] = NULL;

@@ -27,9 +27,9 @@ for i in range(2):
 	nChildrenData.append(-1);
 nChildren = np.asarray(nChildrenData, dtype = "i")
 
-MLA.decision_tree_train(points, label, nChildren, nClusters)
-print("haha");
-k = 3
+dtree_type = input("Enter 0 for ID3, 1 for C4.5")
+MLA.decision_tree_train(points, label, nChildren, nClusters, int(dtree_type))
+
 pointData = [1000, 999]
 point = np.asarray(pointData, dtype = "d")
 predict_label = MLA.decision_tree_predict(point)

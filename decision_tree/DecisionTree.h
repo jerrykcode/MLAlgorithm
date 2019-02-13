@@ -8,13 +8,20 @@
 #endif
 using namespace std;
 
+#define N_CONTINUOUS_CATEGORY 2
+
+typedef enum {
+	ID3,
+	C45,
+} DTREE_TYPE;
+
 template<typename T>
 class DecisionTree {
 public:
 	DecisionTree();
 	~DecisionTree();
 
-	void train(T *dataBuffer, int nPoints /*nRows*/, int nAttributes /*nCols*/, int *label, int *nChildren, int nClusters);
+	void train(T *dataBuffer, int nPoints /*nRows*/, int nAttributes /*nCols*/, int *label, int *nChildren, int nClusters, int dtree_type);
 	int predict(T *predictData);
 
 #ifdef PRINT_TREE
@@ -46,7 +53,8 @@ private:
 	} *Tree;
 
 	void loadBuffer(T *dataBuffer, int *label);
-	Tree buildTree_ID3(vector<PPoint>& pPoints,  bool *attribute_used);
+	Tree buildTree_ID3(vector<PPoint>& pPoints, bool *attribute_used);
+	Tree buildTree_C45(vector<PPoint>& pPoints, bool *attribute_used);
 	int dfs_predict(T *predictData, Tree tree);
 	void clear();
 	void deleteTree(Tree tree);

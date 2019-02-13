@@ -15,7 +15,9 @@ int main() {
 		cin >> label[i];
 	for (int i = 0; i < nAttributes; i++)
 		cin >> nChildren[i];
-	dtree.train(dataBuffer, nPoints, nAttributes, label, nChildren, nClusters);
+	int dtree_type;
+	cin >> dtree_type;
+	dtree.train(dataBuffer, nPoints, nAttributes, label, nChildren, nClusters, dtree_type);
 	int k;
 	cin >> k;
 	double *predict_point = new double[nAttributes];

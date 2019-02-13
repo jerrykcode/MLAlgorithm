@@ -332,9 +332,10 @@ static PyObject *py_decision_tree_train(PyObject *self, PyObject *args) {
 	PyObject *labelBuffer;
 	PyObject *nChildrenBuffer;
 	int nClusters;
+	int dtree_type;
 
 	//Get the Python object passed in
-	if (!PyArg_ParseTuple(args, "O|O|O|i", &dataBuffer, &labelBuffer, &nChildrenBuffer, &nClusters)) {
+	if (!PyArg_ParseTuple(args, "O|O|O|i|i", &dataBuffer, &labelBuffer, &nChildrenBuffer, &nClusters, &dtree_type)) {
 		return NULL;
 	}
 
@@ -414,7 +415,7 @@ static PyObject *py_decision_tree_train(PyObject *self, PyObject *args) {
 	}
 
 	//Call function in decision tree
-	dtree.train((double *)dataView.buf, dataView.shape[0], dataView.shape[1], (int *)labelView.buf, (int *)nChildrenView.buf, nClusters);
+	dtree.train((double *)dataView.buf, dataView.shape[0], dataView.shape[1], (int *)labelView.buf, (int *)nChildrenView.buf, nClusters, dtree_type);
 
 	PyBuffer_Release(&dataView);
 	PyBuffer_Release(&labelView);
@@ -449,7 +450,7 @@ static PyObject *py_decision_tree_predict(PyObject *self, PyObject *args) {
 		return NULL;
 	}
 
-	//Call function in knn
+	//Call function in decision tree
 	int predict_label = dtree.predict((double *)pointView.buf);	
 
 	PyBuffer_Release(&pointView);

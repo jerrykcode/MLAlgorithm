@@ -86,12 +86,10 @@ typename DecisionTree<T>::Tree DecisionTree<T>::buildTree_ID3(vector<PPoint>& pP
 		else { //The attribute has continuous value
 			int best_cut = -1;
 			double best_cut_entropy = -1;
-			child_count = new int[2];
-			fill(child_count, child_count + 2, 0);
+			child_count = new int[2];			
 			child_sample_count = new int*[2];
 			for (int j = 0; j < 2; j++) {
-				child_sample_count[i] = new int[nClusters_];
-				fill(child_sample_count[i], child_sample_count[i] + nClusters_, 0);
+				child_sample_count[j] = new int[nClusters_];				
 			}
 			double *elements = new double[pPoints.size()];
 			for (int j = 0; j < pPoints.size(); j++) {
@@ -99,6 +97,9 @@ typename DecisionTree<T>::Tree DecisionTree<T>::buildTree_ID3(vector<PPoint>& pP
 			}
 			sort(elements, elements + pPoints.size());
 			for (int j = 0; j < pPoints.size() - 1; j++) { //Find the best place to cut the elements into two sets
+				fill(child_count, child_count + 2, 0);
+				for (int k = 0; k < 2; k++)
+					fill(child_sample_count[k], child_sample_count[k] + nClusters_, 0);
 				for (DecisionTree<T>::PPoint pPoint : pPoints) {
 					pPoint->pointData_[i] <= elements[j] ? child_count[0]++ : child_count[1]++;
 					pPoint->pointData_[i] <= elements[j] ? child_sample_count[0][pPoint->label_]++ : child_sample_count[1][pPoint->label_]++;
@@ -108,7 +109,7 @@ typename DecisionTree<T>::Tree DecisionTree<T>::buildTree_ID3(vector<PPoint>& pP
 					double entropy_child = 0.0;
 					for (int l = 0; l < nClusters_; l++) {
 						double p = (child_sample_count[k][l] * 1.0) / child_count[k];
-						entropy_child -= p * (log(p) / log(2));
+						if (p != 0) entropy_child -= p * (log(p) / log(2));
 					}
 					entropy_cut += (child_count[k] * entropy_child) / pPoints.size();
 				}
@@ -163,7 +164,7 @@ typename DecisionTree<T>::Tree DecisionTree<T>::buildTree_ID3(vector<PPoint>& pP
 			for (DecisionTree<T>::PPoint pPoint : pPoints) {
 				if (i == 0 && pPoint->pointData_[best_attribute] < best_tag)
 					child_pPoints.push_back(pPoint);
-				else if (pPoint->pointData_[best_attribute] > best_tag)
+				else if (i == 1 && pPoint->pointData_[best_attribute] > best_tag)
 					child_pPoints.push_back(pPoint);
 			}
 			tree->children_[i] = buildTree_ID3(child_pPoints, attribute_used);

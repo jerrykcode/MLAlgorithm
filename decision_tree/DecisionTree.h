@@ -13,6 +13,7 @@ using namespace std;
 typedef enum {
 	ID3,
 	C45,
+	CART,
 } DTREE_TYPE;
 
 template<typename T>
@@ -35,6 +36,7 @@ private:
 		Point(T *pointData, int label) : pointData_(pointData), label_(label) {}
 	} *PPoint;
 
+	//Define tree node(ID3 & C4.5)
 	typedef struct TNode {
 		vector<PPoint> pPoints_;
 		int attribute_;
@@ -52,18 +54,37 @@ private:
 		}
 	} *Tree;
 
+	//Ddfine binary tree node(CART)
+	typedef struct BTNode {
+		vector<PPoint> pPoints_;
+		int attribute_;
+		bool isAttributeDiscrete_;
+		double tag_;
+		int label_;
+		struct BTNode *left_;
+		struct BTNode *right_;
+		BTNode() {}
+		BTNode(vector<PPoint>& pPoints, int attribute) : pPoints_(pPoints), attribute_(attribute), label_(-1), tag_(0.0) {}
+		BTNode(vector<PPoint>& pPoints, int attribute, bool isAttributeDiscrete) : pPoints_(pPoints), attribute_(attribute), 
+			isAttributeDiscrete_(isAttributeDiscrete), label_(-1), tag_(0.0) {}
+	} *BTree;
+
 	void loadBuffer(T *dataBuffer, int *label);
 	Tree buildTree_ID3(vector<PPoint>& pPoints, bool *attribute_used);
 	Tree buildTree_C45(vector<PPoint>& pPoints, bool *attribute_used);
+	BTree buildTree_CART(vector<PPoint>& pPoints, vector<bool>* attribute_category_used);
 	int dfs_predict(T *predictData, Tree tree);
+	int dfs_predict(T *predictData, BTree bTree);
 	void clear();
 	void deleteTree(Tree tree);
 
 #ifdef PRINT_TREE
 	void dfs_print(vector<string>& attribute_name, vector<vector<string>>& attribute_type_name, vector<string>& cluster_name, int level, Tree tree);
+	void dfs_print(vector<string>& attribute_name, vector<vector<string>>& attribute_type_name, vector<string>& cluster_name, int level, BTree bTree);
 	void print_with_space(string str, int nSpace);
 #endif
 
+	DTREE_TYPE dtree_type_;
 	int nPoints_;
 	int nAttributes_;
 	vector<PPoint> dataSet_;
@@ -71,4 +92,5 @@ private:
 	int nClusters_;
 
 	Tree decisionTree_;
+	BTree decisionBTree_;
 };

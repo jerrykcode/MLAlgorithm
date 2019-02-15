@@ -1,7 +1,7 @@
 #include "DecisionTree.h" 
 
 template<typename T>
-DecisionTree<T>::DecisionTree() : decisionTree_(NULL) {
+DecisionTree<T>::DecisionTree() : decisionTree_(NULL), decisionBTree_(NULL) {
 
 }
 
@@ -17,15 +17,42 @@ void DecisionTree<T>::train(T *dataBuffer, int nPoints, int nAttributes, int *la
 	nAttributes_ = nAttributes;
 	nClusters_ = nClusters;
 	nChildren_ = nChildren;
-	loadBuffer(dataBuffer, label);
-	bool *attribute_used = new bool[nAttributes_];
-	fill(attribute_used, attribute_used + nAttributes_, false);
-	if (dtree_type == ID3) {
+	dtree_type_ = (DTREE_TYPE)dtree_type;
+	loadBuffer(dataBuffer, label);	
+	switch (dtree_type_) {
+	case ID3: {
+		bool *attribute_used = new bool[nAttributes_];
+		fill(attribute_used, attribute_used + nAttributes_, false);
 		decisionTree_ = buildTree_ID3(dataSet_, attribute_used);
+		free(attribute_used);
+		break;
 	}
-	else {
+	case C45: {
+		bool *attribute_used = new bool[nAttributes_];
+		fill(attribute_used, attribute_used + nAttributes_, false);
 		decisionTree_ = buildTree_C45(dataSet_, attribute_used);
+		free(attribute_used);
+		break;
 	}
+	case CART: {
+		vector<bool> *attribute_category_used = new vector<bool>[nAttributes_];
+		for (int i = 0; i < nAttributes_; i++) {
+			vector<bool> category_used;
+			if (nChildren_[i] != -1) {
+				category_used.resize(nChildren_[i]);
+				fill(category_used.begin(), category_used.end(), false);
+			}
+			attribute_category_used[i] = category_used;
+		}
+		decisionBTree_ = buildTree_CART(dataSet_, attribute_category_used);
+		for (int i = 0; i < nAttributes_; i++) {
+			attribute_category_used[i].clear();
+			vector<bool>().swap(attribute_category_used[i]);
+		}
+		break;
+	}			  
+	default: break;
+	}	
 }
 
 template<typename T>
@@ -124,6 +151,10 @@ typename DecisionTree<T>::Tree DecisionTree<T>::buildTree_ID3(vector<PPoint>& pP
 					best_cut_entropy = entropy_cut;
 				}
 			}
+			free(child_count);
+			for (int j = 0; j < 2; j++)
+				free(child_sample_count[j]);
+			free(child_sample_count);
 			if (best_attribute == -1 || best_cut_entropy < best_attribute_entropy) {
 				best_attribute = i;
 				best_attribute_entropy = best_cut_entropy;
@@ -168,7 +199,7 @@ typename DecisionTree<T>::Tree DecisionTree<T>::buildTree_ID3(vector<PPoint>& pP
 		for (int i = 0; i < 2; i++) {
 			vector<DecisionTree<T>::PPoint> child_pPoints;
 			for (DecisionTree<T>::PPoint pPoint : pPoints) {
-				if (i == 0 && pPoint->pointData_[best_attribute] < best_tag)
+				if (i == 0 && pPoint->pointData_[best_attribute] <= best_tag)
 					child_pPoints.push_back(pPoint);
 				else if (i == 1 && pPoint->pointData_[best_attribute] > best_tag)
 					child_pPoints.push_back(pPoint);
@@ -248,6 +279,10 @@ typename DecisionTree<T>::Tree DecisionTree<T>::buildTree_C45(vector<PPoint>& pP
 				best_attribute = i;
 				max_info_gain_ratio = info_gain_ratio;
 			}
+			free(category_count);
+			for (int j = 0; j < nChildren_[i]; j++)
+				free(category_sample_count[j]);
+			free(category_sample_count);
 		}
 		else { //The attribute has continuous value
 			category_count = new int[2];
@@ -302,6 +337,10 @@ typename DecisionTree<T>::Tree DecisionTree<T>::buildTree_C45(vector<PPoint>& pP
 					best_cut_info_gain_ratio = cut_info_gain_ratio;
 				}
 			}
+			free(category_count);
+			for (int j = 0; j < 2; j++)
+				free(category_sample_count[j]);
+			free(category_sample_count);
 			if (best_attribute == -1 || best_cut_info_gain_ratio > max_info_gain_ratio) {
 				best_attribute = i;
 				max_info_gain_ratio = best_cut_info_gain_ratio;
@@ -346,7 +385,7 @@ typename DecisionTree<T>::Tree DecisionTree<T>::buildTree_C45(vector<PPoint>& pP
 		for (int i = 0; i < 2; i++) {
 			vector<DecisionTree<T>::PPoint> child_pPoints;
 			for (DecisionTree<T>::PPoint pPoint : pPoints) {
-				if (i == 0 && pPoint->pointData_[best_attribute] < best_tag) {
+				if (i == 0 && pPoint->pointData_[best_attribute] <= best_tag) {
 					child_pPoints.push_back(pPoint);
 				}
 				else if (i == 1 && pPoint->pointData_[best_attribute] > best_tag) {
@@ -359,9 +398,177 @@ typename DecisionTree<T>::Tree DecisionTree<T>::buildTree_C45(vector<PPoint>& pP
 	return tree;
 }
 
+//Build Tree by CART
+template<typename T>
+typename DecisionTree<T>::BTree DecisionTree<T>::buildTree_CART(vector<PPoint>& pPoints, vector<bool>* attribute_category_used) {
+	if (pPoints.empty()) return NULL;
+	bool sameLabel = true;
+	for (DecisionTree<T>::PPoint pPoint : pPoints) 
+		if (pPoint->label_ != pPoints[0]->label_) {
+			sameLabel = false;
+			break;
+		}
+	if (sameLabel) { //If all the points has the same label, return
+		DecisionTree<T>::BTree bTree = new DecisionTree<T>::BTNode(pPoints, -1);
+		bTree->label_ = pPoints[0]->label_;
+		return bTree;
+	}
+	//Find the best attribute by CART
+	int best_attribute = -1;
+	double min_gini = 0.0;
+	int best_cat;
+	double best_tag;
+	//CART decision tree is a binary tree, every time it split the points into two parts, the left and the right
+	int *category_count = new int[2]; //category_count[a] means the number of points int category a of the attribute
+	int **category_sample_count = new int *[2]; //category_sample_count[a][b] means the number of points in category a and cluster b
+	for (int i = 0; i < 2; i++) {
+		category_sample_count[i] = new int[nClusters_];
+	}
+	for (int i = 0; i < nAttributes_; i++) {	
+		if (nChildren_[i] != -1) { //If the attribute has split value
+			vector<int> category;
+			for (int j = 0; j < nChildren_[i]; j++)
+				if (!attribute_category_used[i][j]) category.push_back(j);
+			if (category.size() == 1) {
+				category.clear();
+				vector<int>().swap(category);
+				continue;
+			}
+			int best_category = -1;
+			double best_category_gini = 0.0;
+			for (int cat : category) {
+				fill(category_count, category_count + 2, 0);
+				for (int j = 0; j < 2; j++)
+					fill(category_sample_count[j], category_sample_count[j] + nClusters_, 0);
+				for (DecisionTree<T>::PPoint pPoint : pPoints) {
+					if (pPoint->pointData_[i] == cat) {
+						category_count[0]++;
+						category_sample_count[0][pPoint->label_]++;
+					}
+					else {
+						category_count[1]++;
+						category_sample_count[1][pPoint->label_]++;
+					}
+				}
+				if (category_count[0] == 0 || category_count[1] == 0) continue;
+				double category_gini = 0.0;
+				for (int j = 0; j < 2; j++) {
+					double gini = 1.0;
+					for (int k = 0; k < nClusters_; k++) {
+						double p = (category_sample_count[j][k] * 1.0) / category_count[j];
+						gini -= p * p;
+					}
+					category_gini += (gini * category_count[j]) / pPoints.size();
+				}
+				if (best_category == -1 || category_gini < best_category_gini) {
+					best_category = cat;
+					best_category_gini = category_gini;
+				}
+				if (category.size() == 2) break;
+			}
+			if (best_category != -1 && (best_attribute == -1 || best_category_gini < min_gini)) {
+				best_attribute = i;
+				min_gini = best_category_gini;
+				best_cat = best_category;
+			}
+		}
+		else { //If the attribute has continuous value
+			double *elements = new double[pPoints.size()];
+			for (int j = 0; j < pPoints.size(); j++)
+				elements[j] = pPoints[j]->pointData_[i];
+			sort(elements, elements + pPoints.size());
+			int best_cut = -1;
+			double best_cut_gini = 0.0;
+			for (int j = 0; j < pPoints.size() - 1; j++) { //cut between j and (j + 1)
+				fill(category_count, category_count + 2, 0);
+				for (int k = 0; k < 2; k++)
+					fill(category_sample_count[k], category_sample_count[k] + nClusters_, 0);
+				for (DecisionTree<T>::PPoint pPoint : pPoints) {
+					if (pPoint->pointData_[i] <= elements[j]) {
+						category_count[0]++;
+						category_sample_count[0][pPoint->label_]++;
+					}
+					else {
+						category_count[1]++;
+						category_sample_count[1][pPoint->label_]++;
+					}
+				}
+				double cut_gini = 0.0;
+				for (int k = 0; k < 2; k++) {
+					double gini = 1.0;
+					for (int l = 0; l < nClusters_; l++) {
+						double p = (category_sample_count[k][l] * 1.0) / category_count[k];
+						gini -= p * p;
+					}
+					cut_gini += (gini * category_count[k]) / pPoints.size();
+				}
+				if (best_cut == -1 || cut_gini < best_cut_gini) {
+					best_cut = j;
+					best_cut_gini = cut_gini;
+				}
+			}
+			if (best_attribute == -1 || best_cut_gini < min_gini) {
+				best_attribute = i;
+				min_gini = best_cut_gini;
+				best_tag = elements[best_cut] / 2 + elements[best_cut + 1] / 2;				
+			}
+			free(elements);
+		}
+	}
+	free(category_count);
+	for (int i = 0; i < 2; i++)
+		free(category_sample_count[i]);
+	free(category_sample_count);
+	if (best_attribute == -1) { //All the attribute has been used, return
+		DecisionTree<T>::BTree bTree = new DecisionTree<T>::BTNode(pPoints, -1);
+		int maxLabel = -1;
+		int maxLabelAppearTime = 0;
+		int *labelAppearTime = new int[nClusters_];
+		fill(labelAppearTime, labelAppearTime + nClusters_, 0);
+		for (DecisionTree<T>::PPoint pPoint : pPoints) 
+			if ((++labelAppearTime[pPoint->label_]) > maxLabelAppearTime) {
+				maxLabelAppearTime = labelAppearTime[pPoint->label_];
+				maxLabel = pPoint->label_;
+			}
+		free(labelAppearTime);
+		bTree->label_ = maxLabel;
+		return bTree;
+	}
+	//Build binary tree
+	DecisionTree<T>::BTree bTree;
+	if (nChildren_[best_attribute] != -1) {
+		bTree = new DecisionTree<T>::BTNode(pPoints, best_attribute, true);
+		bTree->tag_ = (double)best_cat;
+		vector<PPoint> left_child_pPoints, right_child_pPoints;
+		for (DecisionTree<T>::PPoint pPoint : pPoints) {
+			if (pPoint->pointData_[best_attribute] == bTree->tag_) left_child_pPoints.push_back(pPoint);
+			else right_child_pPoints.push_back(pPoint);
+		}
+		attribute_category_used[best_attribute][bTree->tag_] = true;
+		bTree->left_ = buildTree_CART(left_child_pPoints, attribute_category_used);
+		bTree->right_ = buildTree_CART(right_child_pPoints, attribute_category_used);
+		attribute_category_used[best_attribute][bTree->tag_] = false;
+	}
+	else {
+		bTree = new DecisionTree<T>::BTNode(pPoints, best_attribute, false);
+		bTree->tag_ = best_tag;
+		vector<PPoint> left_child_pPoints, right_child_pPoints;
+		for (DecisionTree<T>::PPoint pPoint : pPoints) {
+			if (pPoint->pointData_[best_attribute] <= best_tag) left_child_pPoints.push_back(pPoint);
+			else right_child_pPoints.push_back(pPoint);
+		}	
+		bTree->left_ = buildTree_CART(left_child_pPoints, attribute_category_used);
+		bTree->right_ = buildTree_CART(right_child_pPoints, attribute_category_used);
+	}
+	return bTree;
+}
+
 template<typename T>
 int DecisionTree<T>::predict(T * predictData) {
-	return dfs_predict(predictData, decisionTree_);
+	if (dtree_type_ == ID3 || dtree_type_ == C45)
+		return dfs_predict(predictData, decisionTree_);
+	else
+		return dfs_predict(predictData, decisionBTree_);
 }
 
 template<typename T>
@@ -380,10 +587,31 @@ int DecisionTree<T>::dfs_predict(T * predictData, Tree tree) {
 	}
 }
 
+template<typename T>
+int DecisionTree<T>::dfs_predict(T * predictData, BTree bTree) {
+	if (bTree == NULL) {
+		return -1;
+	}
+	if (bTree->label_ != -1) {
+		return bTree->label_;
+	}
+	if (nChildren_[bTree->attribute_] != -1) {
+		if (predictData[bTree->attribute_] == (int)bTree->tag_) return dfs_predict(predictData, bTree->left_);
+		else return dfs_predict(predictData, bTree->right_);
+	}
+	else {
+		if (predictData[bTree->attribute_] < bTree->tag_) return dfs_predict(predictData, bTree->left_);
+		else return dfs_predict(predictData, bTree->right_);
+	}
+}
+
 #ifdef PRINT_TREE
 template<typename T>
 void DecisionTree<T>::print(vector<string>& attribute_name, vector<vector<string>>& attribute_type_name, vector<string>& cluster_name) {
-	dfs_print(attribute_name, attribute_type_name, cluster_name, 0, decisionTree_);
+	if (dtree_type_ == ID3 || dtree_type_ == C45)
+		dfs_print(attribute_name, attribute_type_name, cluster_name, 0, decisionTree_);
+	else
+		dfs_print(attribute_name, attribute_type_name, cluster_name, 0, decisionBTree_);
 }
 
 template<typename T>
@@ -401,6 +629,24 @@ void DecisionTree<T>::dfs_print(vector<string>& attribute_name, vector<vector<st
 		print_with_space((attribute_name[attribute] + "---" + attribute_type_name[attribute][i] + "?"), level * 5);
 		dfs_print(attribute_name, attribute_type_name, cluster_name, level + 1, tree->children_[i]);
 	}
+}
+
+template<typename T>
+void DecisionTree<T>::dfs_print(vector<string>& attribute_name, vector<vector<string>>& attribute_type_name, vector<string>& cluster_name, int level, BTree bTree) {
+	if (bTree == NULL) {
+		print_with_space("No data", level * 3);
+		return;
+	}
+	if (bTree->label_ != -1) {
+		print_with_space(cluster_name[bTree->label_], level * 3);
+		return;
+	}
+	int attribute = bTree->attribute_;
+	int tag = bTree->tag_;
+	print_with_space((attribute_name[attribute] + "---" + attribute_type_name[attribute][tag] + "? YES:"), level * 5);
+	dfs_print(attribute_name, attribute_type_name, cluster_name, level + 1, bTree->left_);
+	print_with_space((attribute_name[attribute] + "---" + attribute_type_name[attribute][tag] + "? NO:"), level * 5);
+	dfs_print(attribute_name, attribute_type_name, cluster_name, level + 1, bTree->right_);
 }
 
 template<typename T>

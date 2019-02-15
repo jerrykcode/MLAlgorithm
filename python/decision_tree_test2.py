@@ -16,7 +16,7 @@ for i in range(nAttribute):
     nChildren_data.append(-1)
 nChildren = np.asarray(nChildren_data, dtype = "i")
 
-for i in range(2):
+for i in range(3):
     #train
     mla.decision_tree_train(data_train, label_train, nChildren, 3, i)
 
@@ -31,8 +31,10 @@ for i in range(2):
             wrong = wrong + 1
     if i == 0:
         print("ID3 :")
-    else:
+    elif i == 1:
         print("C4.5 :")
+    else:
+        print("CART :");
     print("right : ", end = "")
     print(right)
     print("wrong : ", end = "")

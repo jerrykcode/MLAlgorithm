@@ -50,7 +50,6 @@ int main() {
 	int label[14] = {NO, NO, YES, YES, YES, NO, YES, NO, YES, YES, YES, YES, YES, NO};
 	int nChildren[4] = {3, 3, 2, 2};
 	dtree.train(dataBuffer, 14, 4, label, nChildren, 2, CART);
-	cout << "ok" << endl;
 #ifdef PRINT_TREE
 	vector<string> attribute_name(4);
 	attribute_name[0] = ("OutLook");

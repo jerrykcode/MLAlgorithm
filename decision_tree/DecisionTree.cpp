@@ -73,8 +73,9 @@ typename DecisionTree<T>::Tree DecisionTree<T>::buildTree_ID3(vector<PPoint>& pP
 		}
 	//All the points has the same label, return
 	if (sameLabel) {
-		DecisionTree<T>::Tree tree = new DecisionTree<T>::TNode(pPoints, -1);
+		DecisionTree<T>::Tree tree = new DecisionTree<T>::TNode(-1);
 		tree->label_ = pPoints[0]->label_;
+		delete_pPoints(pPoints);
 		return tree;
 	}
 	//ID3 calculate max information gain
@@ -164,7 +165,7 @@ typename DecisionTree<T>::Tree DecisionTree<T>::buildTree_ID3(vector<PPoint>& pP
 	}
 	//All the attributes had been used, return
 	if (best_attribute == -1) {
-		DecisionTree<T>::Tree tree = new DecisionTree<T>::TNode(pPoints, -1);
+		DecisionTree<T>::Tree tree = new DecisionTree<T>::TNode(-1);
 		int *sample_count = new int[nClusters_];
 		fill(sample_count, sample_count + nClusters_, 0);
 		//Find the label with the maximum appearence in the points
@@ -177,35 +178,36 @@ typename DecisionTree<T>::Tree DecisionTree<T>::buildTree_ID3(vector<PPoint>& pP
 			}
 		free(sample_count);
 		tree->label_ = maxLabel;
+		delete_pPoints(pPoints);
 		return tree;
 	}
 	//Build tree
 	DecisionTree<T>::Tree tree;
+	vector<DecisionTree<T>::PPoint> *child_pPoints;
 	if (nChildren_[best_attribute] != -1) {
 		attribute_used[best_attribute] = true;
-		tree = new DecisionTree<T>::TNode(pPoints, best_attribute, nChildren_[best_attribute], true);
+		tree = new DecisionTree<T>::TNode(best_attribute, nChildren_[best_attribute], true);
+		child_pPoints = new vector<DecisionTree<T>::PPoint>[nChildren_[best_attribute]];
+		for (DecisionTree<T>::PPoint pPoint : pPoints) {
+			child_pPoints[(int)pPoint->pointData_[best_attribute]].push_back(pPoint);
+		}
+		clear_pPoints(pPoints);
 		for (int i = 0; i < nChildren_[best_attribute]; i++) {
-			vector<DecisionTree<T>::PPoint> child_pPoints;
-			for (DecisionTree<T>::PPoint pPoint : pPoints)
-				if (pPoint->pointData_[best_attribute] == i)
-					child_pPoints.push_back(pPoint);
-			tree->children_[i] = buildTree_ID3(child_pPoints, attribute_used);
+			tree->children_[i] = buildTree_ID3(child_pPoints[i], attribute_used);
 		}
 		attribute_used[best_attribute] = false;		
 	}
 	else {
-		tree = new DecisionTree<T>::TNode(pPoints, best_attribute, 2, false);
+		tree = new DecisionTree<T>::TNode(best_attribute, 2, false);
 		tree->tag_ = best_tag;
+		child_pPoints = new vector<DecisionTree<T>::PPoint>[2];		
+		for (DecisionTree<T>::PPoint pPoint : pPoints) {
+			pPoint->pointData_[best_attribute] <= best_tag ? child_pPoints[0].push_back(pPoint) : child_pPoints[1].push_back(pPoint);;
+		}
+		clear_pPoints(pPoints);
 		for (int i = 0; i < 2; i++) {
-			vector<DecisionTree<T>::PPoint> child_pPoints;
-			for (DecisionTree<T>::PPoint pPoint : pPoints) {
-				if (i == 0 && pPoint->pointData_[best_attribute] <= best_tag)
-					child_pPoints.push_back(pPoint);
-				else if (i == 1 && pPoint->pointData_[best_attribute] > best_tag)
-					child_pPoints.push_back(pPoint);
-			}
-			tree->children_[i] = buildTree_ID3(child_pPoints, attribute_used);
-		}		
+			tree->children_[i] = buildTree_ID3(child_pPoints[i], attribute_used);
+		}
 	}
 	return tree;
 }
@@ -221,8 +223,9 @@ typename DecisionTree<T>::Tree DecisionTree<T>::buildTree_C45(vector<PPoint>& pP
 			break;
 		}
 	if (sameLabel) { //All the points has the same label, return
-		DecisionTree<T>::Tree tree = new DecisionTree<T>::TNode(pPoints, -1);
+		DecisionTree<T>::Tree tree = new DecisionTree<T>::TNode(-1);
 		tree->label_ = pPoints[0]->label_;
+		delete_pPoints(pPoints);
 		return tree;
 	}
 	//Calculates the information entropy of the total dataset
@@ -360,39 +363,37 @@ typename DecisionTree<T>::Tree DecisionTree<T>::buildTree_C45(vector<PPoint>& pP
 				maxLabelCount = sample_count[pPoint->label_];
 			}
 		}
-		DecisionTree<T>::Tree tree = new DecisionTree<T>::TNode(pPoints, -1);
+		DecisionTree<T>::Tree tree = new DecisionTree<T>::TNode(-1);
 		tree->label_ = maxLabel;
+		delete_pPoints(pPoints);
 		return tree;
 	}
 	//Build Tree
 	DecisionTree<T>::Tree tree;
+	vector<DecisionTree<T>::PPoint> *child_pPoints;
 	if (nChildren_[best_attribute] != -1) {
-		tree = new DecisionTree<T>::TNode(pPoints, best_attribute, nChildren_[best_attribute], true);
+		child_pPoints = new vector<DecisionTree<T>::PPoint>[nChildren_[best_attribute]];
+		tree = new DecisionTree<T>::TNode(best_attribute, nChildren_[best_attribute], true);
 		attribute_used[best_attribute] = true;
+		for (DecisionTree<T>::PPoint pPoint : pPoints) {
+			child_pPoints[(int)pPoint->pointData_[best_attribute]].push_back(pPoint);
+		}
+		clear_pPoints(pPoints);
 		for (int i = 0; i < nChildren_[best_attribute]; i++) {
-			vector<DecisionTree<T>::PPoint> child_pPoints;
-			for (DecisionTree<T>::PPoint pPoint : pPoints) {
-				if (pPoint->pointData_[best_attribute] == i)
-					child_pPoints.push_back(pPoint);
-			}
-			tree->children_[i] = buildTree_C45(child_pPoints, attribute_used);
+			tree->children_[i] = buildTree_C45(child_pPoints[i], attribute_used);
 		}
 		attribute_used[best_attribute] = false;
 	}
 	else {
-		tree = new DecisionTree<T>::TNode(pPoints, best_attribute, 2, false);
+		child_pPoints = new vector<DecisionTree<T>::PPoint>[2];
+		tree = new DecisionTree<T>::TNode(best_attribute, 2, false);
 		tree->tag_ = best_tag;
+		for (DecisionTree<T>::PPoint pPoint : pPoints) {
+			pPoint->pointData_[best_attribute] <= best_tag ? child_pPoints[0].push_back(pPoint) : child_pPoints[1].push_back(pPoint);	
+		}
+		clear_pPoints(pPoints);
 		for (int i = 0; i < 2; i++) {
-			vector<DecisionTree<T>::PPoint> child_pPoints;
-			for (DecisionTree<T>::PPoint pPoint : pPoints) {
-				if (i == 0 && pPoint->pointData_[best_attribute] <= best_tag) {
-					child_pPoints.push_back(pPoint);
-				}
-				else if (i == 1 && pPoint->pointData_[best_attribute] > best_tag) {
-					child_pPoints.push_back(pPoint);
-				}
-			}
-			tree->children_[i] = buildTree_C45(child_pPoints, attribute_used);
+			tree->children_[i] = buildTree_C45(child_pPoints[i], attribute_used);
 		}
 	}
 	return tree;
@@ -408,9 +409,10 @@ typename DecisionTree<T>::BTree DecisionTree<T>::buildTree_CART(vector<PPoint>& 
 			sameLabel = false;
 			break;
 		}
-	if (sameLabel) { //If all the points has the same label, return
-		DecisionTree<T>::BTree bTree = new DecisionTree<T>::BTNode(pPoints, -1);
+	if (sameLabel) { //If all the points has the same label, return		
+		DecisionTree<T>::BTree bTree = new DecisionTree<T>::BTNode(-1);
 		bTree->label_ = pPoints[0]->label_;
+		delete_pPoints(pPoints);
 		return bTree;
 	}
 	//Find the best attribute by CART
@@ -519,8 +521,8 @@ typename DecisionTree<T>::BTree DecisionTree<T>::buildTree_CART(vector<PPoint>& 
 	for (int i = 0; i < 2; i++)
 		free(category_sample_count[i]);
 	free(category_sample_count);
-	if (best_attribute == -1) { //All the attribute has been used, return
-		DecisionTree<T>::BTree bTree = new DecisionTree<T>::BTNode(pPoints, -1);
+	if (best_attribute == -1) { //All the attribute has been used, return		
+		DecisionTree<T>::BTree bTree = new DecisionTree<T>::BTNode(-1);
 		int maxLabel = -1;
 		int maxLabelAppearTime = 0;
 		int *labelAppearTime = new int[nClusters_];
@@ -532,35 +534,54 @@ typename DecisionTree<T>::BTree DecisionTree<T>::buildTree_CART(vector<PPoint>& 
 			}
 		free(labelAppearTime);
 		bTree->label_ = maxLabel;
+		delete_pPoints(pPoints);
 		return bTree;
 	}
 	//Build binary tree
 	DecisionTree<T>::BTree bTree;
 	if (nChildren_[best_attribute] != -1) {
-		bTree = new DecisionTree<T>::BTNode(pPoints, best_attribute, true);
+		bTree = new DecisionTree<T>::BTNode(best_attribute, true);
 		bTree->tag_ = (double)best_cat;
 		vector<PPoint> left_child_pPoints, right_child_pPoints;
 		for (DecisionTree<T>::PPoint pPoint : pPoints) {
 			if (pPoint->pointData_[best_attribute] == bTree->tag_) left_child_pPoints.push_back(pPoint);
 			else right_child_pPoints.push_back(pPoint);
 		}
+		clear_pPoints(pPoints);
 		attribute_category_used[best_attribute][bTree->tag_] = true;
 		bTree->left_ = buildTree_CART(left_child_pPoints, attribute_category_used);
 		bTree->right_ = buildTree_CART(right_child_pPoints, attribute_category_used);
 		attribute_category_used[best_attribute][bTree->tag_] = false;
 	}
 	else {
-		bTree = new DecisionTree<T>::BTNode(pPoints, best_attribute, false);
+		bTree = new DecisionTree<T>::BTNode(best_attribute, false);
 		bTree->tag_ = best_tag;
 		vector<PPoint> left_child_pPoints, right_child_pPoints;
 		for (DecisionTree<T>::PPoint pPoint : pPoints) {
 			if (pPoint->pointData_[best_attribute] <= best_tag) left_child_pPoints.push_back(pPoint);
 			else right_child_pPoints.push_back(pPoint);
 		}	
+		clear_pPoints(pPoints);
 		bTree->left_ = buildTree_CART(left_child_pPoints, attribute_category_used);
 		bTree->right_ = buildTree_CART(right_child_pPoints, attribute_category_used);
 	}
 	return bTree;
+}
+
+template<typename T>
+void DecisionTree<T>::clear_pPoints(vector<PPoint>& pPoints) {
+	pPoints.clear();
+	vector<PPoint>().swap(pPoints);
+}
+
+template<typename T>
+void DecisionTree<T>::delete_pPoints(vector<PPoint>& pPoints) {
+	for (auto it = pPoints.begin(); it != pPoints.end(); it++)
+		if (*it != NULL) {
+			delete (*it);
+			*it = NULL;
+		}
+	clear_pPoints(pPoints);
 }
 
 template<typename T>

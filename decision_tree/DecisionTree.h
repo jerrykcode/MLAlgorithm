@@ -37,17 +37,15 @@ private:
 	} *PPoint;
 
 	//Define tree node(ID3 & C4.5)
-	typedef struct TNode {
-		vector<PPoint> pPoints_;
+	typedef struct TNode {		
 		int attribute_;
 		bool isAttributeDiscrete_;
 		double tag_;
 		int label_;
 		struct TNode ** children_;
 		TNode() {}
-		TNode(vector<PPoint>& pPoints, int attribute) : pPoints_(pPoints), attribute_(attribute), label_(-1), tag_(0.0) {}
-		TNode(vector<PPoint>& pPoints, int attribute, int nChildren, bool isAttributeDiscrete) : pPoints_(pPoints), 
-			attribute_(attribute), label_(-1), isAttributeDiscrete_(isAttributeDiscrete), tag_(0.0) {
+		TNode(int attribute) : attribute_(attribute), label_(-1), tag_(0.0) {}
+		TNode(int attribute, int nChildren, bool isAttributeDiscrete) : attribute_(attribute), label_(-1), isAttributeDiscrete_(isAttributeDiscrete), tag_(0.0) {
 			children_ = new struct TNode *[nChildren];
 			for (int i = 0; i < nChildren; i++)
 				children_[i] = NULL;
@@ -55,8 +53,7 @@ private:
 	} *Tree;
 
 	//Ddfine binary tree node(CART)
-	typedef struct BTNode {
-		vector<PPoint> pPoints_;
+	typedef struct BTNode {	
 		int attribute_;
 		bool isAttributeDiscrete_;
 		double tag_;
@@ -64,15 +61,16 @@ private:
 		struct BTNode *left_;
 		struct BTNode *right_;
 		BTNode() {}
-		BTNode(vector<PPoint>& pPoints, int attribute) : pPoints_(pPoints), attribute_(attribute), label_(-1), tag_(0.0) {}
-		BTNode(vector<PPoint>& pPoints, int attribute, bool isAttributeDiscrete) : pPoints_(pPoints), attribute_(attribute), 
-			isAttributeDiscrete_(isAttributeDiscrete), label_(-1), tag_(0.0) {}
+		BTNode(int attribute) : attribute_(attribute), label_(-1), tag_(0.0) {}
+		BTNode(int attribute, bool isAttributeDiscrete) : attribute_(attribute), isAttributeDiscrete_(isAttributeDiscrete), label_(-1), tag_(0.0) {}
 	} *BTree;
 
 	void loadBuffer(T *dataBuffer, int *label);
 	Tree buildTree_ID3(vector<PPoint>& pPoints, bool *attribute_used);
 	Tree buildTree_C45(vector<PPoint>& pPoints, bool *attribute_used);
 	BTree buildTree_CART(vector<PPoint>& pPoints, vector<bool>* attribute_category_used);
+	void clear_pPoints(vector<PPoint>& pPoints);
+	void delete_pPoints(vector<PPoint>& pPoints);
 	int dfs_predict(T *predictData, Tree tree);
 	int dfs_predict(T *predictData, BTree bTree);
 	void clear();
